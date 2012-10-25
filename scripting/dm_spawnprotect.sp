@@ -3,28 +3,28 @@
 #define DOD_MAXPLAYERS 33
 #define Team_Allies    2
 
-public Plugin:myinfo =
-{
-	name			= "DM SpawnProtect",
-	author			= "Root",
-	description		= "Prevent SpawnKilling in Deathmatch",
-	version			= "1.0",
-	url				= "http://www.dodsplugins.com/"
-}
-
 new Handle:DeathmatchMode   = INVALID_HANDLE,
 	Handle:SpawnProtectTime = INVALID_HANDLE,
 	Handle:SpawnProtectTimer[DOD_MAXPLAYERS] = INVALID_HANDLE,
 	bool:IsProtected[DOD_MAXPLAYERS] = false
 
+public Plugin:myinfo =
+{
+	name			= "DM SpawnProtect",
+	author			= "Root",
+	description		= "Prevent spawnkilling in DeathMatch",
+	version			= "1.0",
+	url				= "http://www.dodsplugins.com/"
+}
+
 
 public OnPluginStart()
 {
-	SpawnProtectTime = CreateConVar("dm_spawnprotect_time", "1.0", "<#> = time in seconds to prevent players from taking damage after spawning", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0)
+	SpawnProtectTime = CreateConVar("dm_spawnprotect_time", "1.0", "<#> = Time in seconds to prevent players from taking damage after spawning", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0)
 
 	DeathmatchMode = FindConVar("mp_friendlyfire")
 
-	HookEventEx("player_spawn", OnPlayerSpawn, EventHookMode_Post)
+	HookEvent("player_spawn", OnPlayerSpawn)
 
 	AutoExecConfig(true, "dm.spawnprotect")
 }
@@ -52,7 +52,7 @@ public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcas
 		SetEntProp(client, Prop_Data, "m_takedamage", 0, 1)
 		SpawnProtectTimer[client] = CreateTimer(GetConVarFloat(SpawnProtectTime), SpawnProtectOff, client, TIMER_FLAG_NO_MAPCHANGE)
 
-		if(!GetConVarBool(DeathmatchMode))
+		if(GetConVarBool(DeathmatchMode) == false)
 		{
 			new team = GetClientTeam(client);
 			if(team == Team_Allies)
@@ -96,5 +96,5 @@ KillSpawnProtTimer(client)
 
 bool:IsPlayerValid(client)
 {
-	return (client > 0 && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) > 1) ? true : false
+	return (client > 0 && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) >= Team_Allies) ? true : false
 }
