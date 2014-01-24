@@ -1,12 +1,10 @@
-#include <sourcemod>
-
 #define DOD_MAXPLAYERS 33
 #define Team_Allies    2
 
-new Handle:IsFreeForAllMode = INVALID_HANDLE,
-    Handle:SpawnProtectTime = INVALID_HANDLE,
+new Handle:SpawnProtectTime = INVALID_HANDLE,
     Handle:SpawnProtectTimer[DOD_MAXPLAYERS + 1] = INVALID_HANDLE,
-    bool:Protected[DOD_MAXPLAYERS + 1] = false
+    bool:Protected[DOD_MAXPLAYERS + 1] = false,
+	bool:IsFreeForAll
 
 public Plugin:myinfo =
 {
@@ -22,11 +20,22 @@ public OnPluginStart()
 {
 	SpawnProtectTime = CreateConVar("dm_spawnprotect_time", "1.0", "<#> = Time (in seconds) to prevent player from taking damage after respawning", FCVAR_PLUGIN|FCVAR_NOTIFY, true, 0.0)
 
-	IsFreeForAllMode = FindConVar("mp_friendlyfire")
-
 	HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Post)
 
 	AutoExecConfig(true, "dm.spawnprotect")
+}
+
+public OnAllPluginsLoaded()
+{
+	static Handle:dm_mode = INVALID_HANDLE;
+
+	if ((dm_mode = FindConVar("dm_mode")))
+	{
+		IsFreeForAll = true
+	}
+
+	if (dm_mode != INVALID_HANDLE)
+		CloseHandle(dm_mode);
 }
 
 public OnClientPostAdminCheck(client)
@@ -41,9 +50,10 @@ public OnClientDisconnect(client)
 
 public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"))
+	new clientID = GetEventInt(event, "userid");
+	new client   = GetClientOfUserId(clientID);
 
-	if(GetConVarInt(SpawnProtectTime) && IsPlayerValid(client))
+	if (IsPlayerValid(client) && GetConVarInt(SpawnProtectTime))
 	{
 		KillSpawnProtTimer(client)
 
@@ -51,11 +61,11 @@ public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcas
 
 		SetEntProp(client, Prop_Data, "m_takedamage", 0, 1)
 
-		SpawnProtectTimer[client] = CreateTimer(GetConVarFloat(SpawnProtectTime), SpawnProtectOff, client, TIMER_FLAG_NO_MAPCHANGE)
+		SpawnProtectTimer[client] = CreateTimer(GetConVarFloat(SpawnProtectTime), SpawnProtectOff, clientID, TIMER_FLAG_NO_MAPCHANGE)
 
-		if(GetConVarBool(IsFreeForAllMode) == false)
+		if (!IsFreeForAll)
 		{
-			if(GetClientTeam(client) == Team_Allies)
+			if (GetClientTeam(client) == Team_Allies)
 			{
 				SetEntityRenderColor(client, 0, 255, 0, 255)
 			}
@@ -71,18 +81,18 @@ public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontBroadcas
 
 public Action:SpawnProtectOff(Handle:timer, any:client)
 {
-	SpawnProtectTimer[client] = INVALID_HANDLE
-
-	if(IsPlayerValid(client))
+	if ((client = GetClientOfUserId(client)))
 	{
-		Protected[client] = false
+		SpawnProtectTimer[client] = INVALID_HANDLE
 
-		SetEntProp(client, Prop_Data, "m_takedamage", 2, 1)
-		SetEntityRenderColor(client)
+		if (IsPlayerValid(client))
+		{
+			Protected[client] = false
 
-		return Plugin_Handled
+			SetEntProp(client, Prop_Data, "m_takedamage", 2, 1)
+			SetEntityRenderColor(client)
+		}
 	}
-	return Plugin_Handled
 }
 
 KillSpawnProtTimer(client)
@@ -90,11 +100,11 @@ KillSpawnProtTimer(client)
 	Protected[client] = false
 
 	if(SpawnProtectTimer[client] != INVALID_HANDLE)
+	{
 		CloseHandle(SpawnProtectTimer[client])
+	}
+
 	SpawnProtectTimer[client] = INVALID_HANDLE
 }
 
-bool:IsPlayerValid(client)
-{
-	return (client > 0 && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) >= Team_Allies) ? true : false
-}
+bool:IsPlayerValid(client) return (1 <= client <= MaxClients && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) >= Team_Allies) ? true : false
